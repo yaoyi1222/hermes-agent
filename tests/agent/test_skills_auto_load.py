@@ -339,7 +339,7 @@ def test_aiagent_build_system_prompt_injects_auto_load(tmp_path):
         agent.model = "test-model"
         agent.provider = "test"
         agent.pass_session_id = False
-        agent.skip_context_files = True
+        agent.skip_context_files = True  # avoid upstream context_parts init-order bug
         agent.load_soul_identity = False
         agent._memory_enabled = False
         agent._user_profile_enabled = False
@@ -370,7 +370,7 @@ def test_aiagent_build_system_prompt_no_auto_load_when_empty(tmp_path):
         agent.model = "test-model"
         agent.provider = "test"
         agent.pass_session_id = False
-        agent.skip_context_files = True
+        agent.skip_context_files = True  # avoid upstream context_parts init-order bug
         agent.load_soul_identity = False
         agent._memory_enabled = False
         agent._user_profile_enabled = False
@@ -403,7 +403,7 @@ def test_aiagent_build_system_prompt_survives_config_errors(tmp_path):
         agent.model = "test-model"
         agent.provider = "test"
         agent.pass_session_id = False
-        agent.skip_context_files = True
+        agent.skip_context_files = True  # avoid upstream context_parts init-order bug
         agent.load_soul_identity = False
         agent._memory_enabled = False
         agent._user_profile_enabled = False

@@ -514,7 +514,10 @@ def resolve_auto_load_skills(user_config: dict | None = None) -> list[str]:
         except Exception:
             return []
 
-    auto_load = user_config.get("skills", {}).get("auto_load")
+    skills_block = user_config.get("skills", {})
+    if not isinstance(skills_block, dict):
+        return []
+    auto_load = skills_block.get("auto_load")
     if not auto_load or not isinstance(auto_load, list):
         return []
 

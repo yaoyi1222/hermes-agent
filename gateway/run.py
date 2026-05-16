@@ -10642,15 +10642,20 @@ class GatewayRunner:
                         logger.warning("Background task vision enrichment failed: %s", e)
 
             # ── Auto-load skills from config ──
-            from agent.skill_commands import build_auto_load_prompt
-            auto_prompt, auto_loaded, auto_missing = build_auto_load_prompt(
-                task_id=task_id, user_config=user_config
-            )
-            if auto_missing:
-                logger.warning(
-                    "Gateway: auto_load skill(s) not found: %s",
-                    ", ".join(auto_missing),
+            # Skip when HERMES_IGNORE_RULES is set — users who opt out of
+            # auto-injection should not get auto-injected skills.
+            if os.environ.get("HERMES_IGNORE_RULES") != "1":
+                from agent.skill_commands import build_auto_load_prompt
+                auto_prompt, auto_loaded, auto_missing = build_auto_load_prompt(
+                    task_id=task_id, user_config=user_config
                 )
+                if auto_missing:
+                    logger.warning(
+                        "Gateway: auto_load skill(s) not found: %s",
+                        ", ".join(auto_missing),
+                    )
+            else:
+                auto_prompt = ""
 
             def run_sync():
                 agent = AIAgent(

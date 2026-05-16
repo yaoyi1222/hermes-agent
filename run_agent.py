@@ -6170,23 +6170,28 @@ class AIAgent:
 
         # ── Auto-load skills from skills.auto_load config ──
         # Covers programmatic AIAgent users who don't pass --skills or
-        # system_message.  For CLI and gateway paths that already handle
-        # auto_load separately (via --skills merge or system_message),
-        # this may produce a harmless duplicate activation note.
-        from agent.skill_commands import build_auto_load_prompt as _build_auto
-        try:
-            _auto_prompt, _auto_loaded, _auto_missing = _build_auto(
-                task_id=getattr(self, "session_id", None),
-            )
-            if _auto_missing:
-                from hermes_logging import get_logger
-                get_logger().warning(
-                    "Auto-load skill(s) not found: %s", ", ".join(_auto_missing)
+        # system_message.  Only injected on the FIRST system prompt build
+        # (new session); resumed sessions already have the auto_load block
+        # in their conversation history.
+        # Respects HERMES_IGNORE_RULES — users who opt out of auto-injection
+        # should not get auto-injected skills.
+        _is_new_session = getattr(self, "_cached_system_prompt", None) is None
+        _ignore_rules = os.environ.get("HERMES_IGNORE_RULES") == "1"
+        if _is_new_session and not _ignore_rules:
+            from agent.skill_commands import build_auto_load_prompt as _build_auto
+            try:
+                _auto_prompt, _auto_loaded, _auto_missing = _build_auto(
+                    task_id=getattr(self, "session_id", None),
                 )
-            if _auto_prompt:
-                stable_parts.append(_auto_prompt)
-        except Exception:
-            pass  # Non-fatal — config read errors must not break session start
+                if _auto_missing:
+                    from hermes_logging import get_logger
+                    get_logger().warning(
+                        "Auto-load skill(s) not found: %s", ", ".join(_auto_missing)
+                    )
+                if _auto_prompt:
+                    stable_parts.append(_auto_prompt)
+            except Exception:
+                pass  # Non-fatal — config read errors must not break session start
 
         if not self.skip_context_files:
             # Use TERMINAL_CWD for context file discovery when set (gateway

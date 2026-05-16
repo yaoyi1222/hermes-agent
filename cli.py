@@ -13979,8 +13979,10 @@ def main(
     # Merge skills.auto_load from config with --skills CLI flag (union, no dupes).
     # Auto-load skills are prepended so CLI flag skills take visual precedence
     # in the "Activated skills" display while both are functionally loaded.
+    # When --ignore-rules is set, skip auto_load — matches the contract that
+    # --ignore-rules suppresses all auto-injection (AGENTS.md, SOUL.md, memory, skills).
     from agent.skill_commands import resolve_auto_load_skills
-    auto_load_skills = resolve_auto_load_skills(CLI_CONFIG)
+    auto_load_skills = resolve_auto_load_skills(CLI_CONFIG) if not ignore_rules else []
     if auto_load_skills:
         merged = list(auto_load_skills)
         for s in parsed_skills:
