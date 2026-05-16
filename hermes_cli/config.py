@@ -1232,6 +1232,13 @@ DEFAULT_CONFIG = {
         # External hub installs (trusted/community sources) are always
         # scanned regardless of this setting.
         "guard_agent_created": False,
+        # Skills to auto-load at every session start — CLI, gateway,
+        # and programmatic AIAgent paths.  Each listed skill is loaded
+        # exactly as if it had been passed via `--skills`.  Skills
+        # passed via `--skills` at invocation time are merged with
+        # this list (union, no duplicates).  Missing skills emit a
+        # warning and are skipped (non-fatal).
+        "auto_load": [],
     },
 
     # Curator — background skill maintenance.

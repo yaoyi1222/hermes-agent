@@ -6168,6 +6168,47 @@ class AIAgent:
         if skills_prompt:
             stable_parts.append(skills_prompt)
 
+        # ── Auto-load skills from skills.auto_load config ──
+        # Covers programmatic AIAgent users who don't pass --skills or
+        # system_message.  For CLI and gateway paths that already handle
+        # auto_load separately (via --skills merge or system_message),
+        # this may produce a harmless duplicate activation note.
+        from agent.skill_commands import build_auto_load_prompt as _build_auto
+        try:
+            _auto_prompt, _auto_loaded, _auto_missing = _build_auto(
+                task_id=getattr(self, "session_id", None),
+            )
+            if _auto_missing:
+                from hermes_logging import get_logger
+                get_logger().warning(
+                    "Auto-load skill(s) not found: %s", ", ".join(_auto_missing)
+                )
+            if _auto_prompt:
+                stable_parts.append(_auto_prompt)
+        except Exception:
+            pass  # Non-fatal — config read errors must not break session start
+
+        if not self.skip_context_files:
+            # Use TERMINAL_CWD for context file discovery when set (gateway
+            # mode).  The gateway process runs from the hermes-agent install
+            # dir, so os.getcwd() would pick up the repo's AGENTS.md and
+            # other dev files — inflating token usage by ~10k for no benefit.
+            _context_cwd = os.getenv("TERMINAL_CWD") or None
+            context_files_prompt = build_context_files_prompt(
+                cwd=_context_cwd, skip_soul=_soul_loaded)
+            if context_files_prompt:
+                context_parts.append(context_files_prompt)
+
+        from hermes_time import now as _hermes_now
+        now = _hermes_now()
+        timestamp_line = f"Conversation started: {now.strftime('%A, %B %d, %Y %I:%M %p')}"
+        if self.pass_session_id and self.session_id:
+            timestamp_line += f"\nSession ID: {self.session_id}"
+        if self.model:
+            timestamp_line += f"\nModel: {self.model}"
+        if self.provider:
+            timestamp_line += f"\nProvider: {self.provider}"
+
         # Alibaba Coding Plan API always returns "glm-4.7" as model name regardless
         # of the requested model. Inject explicit model identity into the system prompt
         # so the agent can correctly report which model it is (workaround for API bug).

@@ -10641,6 +10641,17 @@ class GatewayRunner:
                     except Exception as e:
                         logger.warning("Background task vision enrichment failed: %s", e)
 
+            # ── Auto-load skills from config ──
+            from agent.skill_commands import build_auto_load_prompt
+            auto_prompt, auto_loaded, auto_missing = build_auto_load_prompt(
+                task_id=task_id, user_config=user_config
+            )
+            if auto_missing:
+                logger.warning(
+                    "Gateway: auto_load skill(s) not found: %s",
+                    ", ".join(auto_missing),
+                )
+
             def run_sync():
                 agent = AIAgent(
                     model=turn_route["model"],
@@ -10673,6 +10684,7 @@ class GatewayRunner:
                 try:
                     return agent.run_conversation(
                         user_message=enriched_prompt,
+                        system_message=auto_prompt or None,
                         task_id=task_id,
                     )
                 finally:

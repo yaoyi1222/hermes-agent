@@ -13976,6 +13976,18 @@ def main(
     
     parsed_skills = _parse_skills_argument(skills)
 
+    # Merge skills.auto_load from config with --skills CLI flag (union, no dupes).
+    # Auto-load skills are prepended so CLI flag skills take visual precedence
+    # in the "Activated skills" display while both are functionally loaded.
+    from agent.skill_commands import resolve_auto_load_skills
+    auto_load_skills = resolve_auto_load_skills(CLI_CONFIG)
+    if auto_load_skills:
+        merged = list(auto_load_skills)
+        for s in parsed_skills:
+            if s not in merged:
+                merged.append(s)
+        parsed_skills = merged
+
     # Create CLI instance
     cli = HermesCLI(
         model=model,
@@ -13998,8 +14010,18 @@ def main(
             task_id=cli.session_id,
         )
         if missing_skills:
-            missing_display = ", ".join(missing_skills)
-            raise ValueError(f"Unknown skill(s): {missing_display}")
+            auto_load_set = set(auto_load_skills) if auto_load_skills else set()
+            cli_missing = [m for m in missing_skills if m not in auto_load_set]
+            auto_missing = [m for m in missing_skills if m in auto_load_set]
+            if auto_missing:
+                import logging
+                logging.warning(
+                    "auto_load skill(s) not found: %s",
+                    ", ".join(auto_missing),
+                )
+            if cli_missing:
+                missing_display = ", ".join(cli_missing)
+                raise ValueError(f"Unknown skill(s): {missing_display}")
         if skills_prompt:
             cli.system_prompt = "\n\n".join(
                 part for part in (cli.system_prompt, skills_prompt) if part
