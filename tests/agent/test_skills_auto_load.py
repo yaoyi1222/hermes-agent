@@ -164,7 +164,11 @@ def test_build_auto_load_prompt_empty_config():
 # ── CLI merge with --skills ──
 
 def test_cli_merges_auto_load_with_cli_skills(monkeypatch):
-    """CLI main() merges auto_load skills into --skills (union, no dupes)."""
+    """CLI main() displays auto_load skills alongside --skills in 'Activated skills'.
+
+    Functional injection of auto_load happens in AIAgent (new-session gated);
+    the CLI display should still reflect both sources.
+    """
     import cli as cli_mod
 
     created = {}
@@ -187,10 +191,8 @@ def test_cli_merges_auto_load_with_cli_skills(monkeypatch):
     monkeypatch.setattr(cli_mod, "HermesCLI", lambda **kw: _DummyCLI(**kw))
     monkeypatch.setattr(cli_mod, "CLI_CONFIG", {})
 
-    # Patch resolve_auto_load_skills at its definition site (imported inside main())
     import agent.skill_commands as sc_mod
     monkeypatch.setattr(sc_mod, "resolve_auto_load_skills", lambda config: list(auto_load))
-    # Patch build_preloaded_skills_prompt at its usage site (top-level import in cli.py)
     monkeypatch.setattr(
         cli_mod,
         "build_preloaded_skills_prompt",
@@ -199,11 +201,9 @@ def test_cli_merges_auto_load_with_cli_skills(monkeypatch):
         ),
     )
 
-    # --skills with one skill + auto_load with one different skill
     with pytest.raises(SystemExit):
         cli_mod.main(skills="cli-skill", list_tools=True)
 
-    # The merged list should have BOTH skills, deduplicated
     cli_obj = created["cli"]
     assert "auto-skill" in cli_obj.preloaded_skills
     assert "cli-skill" in cli_obj.preloaded_skills
@@ -249,8 +249,14 @@ def test_cli_deduplicates_overlapping_skills(monkeypatch):
     assert cli_obj.preloaded_skills.count("shared-skill") == 1
 
 
-def test_cli_warns_for_missing_auto_load_skills(monkeypatch):
-    """Missing auto_load skills produce a warning, not an error."""
+def test_cli_does_not_error_on_missing_auto_load_skills(monkeypatch):
+    """CLI should not raise for missing auto_load skills.
+
+    Auto_load skills are injected later by AIAgent; missing ones are reported
+    as a warning by build_auto_load_prompt (covered by
+    test_build_auto_load_prompt_reports_missing_non_fatal). The CLI must only
+    validate skills it actually injects itself (--skills).
+    """
     import cli as cli_mod
 
     created = {}
@@ -273,16 +279,21 @@ def test_cli_warns_for_missing_auto_load_skills(monkeypatch):
 
     import agent.skill_commands as sc_mod
     monkeypatch.setattr(sc_mod, "resolve_auto_load_skills", lambda config: ["missing-auto"])
+    # CLI should only build prompts for --skills entries, not auto_load.
     monkeypatch.setattr(
         cli_mod,
         "build_preloaded_skills_prompt",
-        # Only "missing-auto" is missing; "valid-cli-skill" is loaded
-        lambda skills, task_id=None: ("prompt", ["valid-cli-skill"], ["missing-auto"]),
+        lambda skills, task_id=None: ("prompt", list(skills), []),
     )
 
-    # Should NOT raise ValueError — missing auto_load is a warning
+    # Should NOT raise ValueError — missing auto_load is handled in AIAgent layer
     with pytest.raises(SystemExit):
         cli_mod.main(skills="valid-cli-skill", list_tools=True)
+
+    cli_obj = created["cli"]
+    # Both still appear in display
+    assert "missing-auto" in cli_obj.preloaded_skills
+    assert "valid-cli-skill" in cli_obj.preloaded_skills
 
 
 def test_cli_still_errors_for_missing_cli_skills(monkeypatch):

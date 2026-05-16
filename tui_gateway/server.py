@@ -1879,30 +1879,6 @@ def _make_agent(sid: str, key: str, session_id: str | None = None):
             system_prompt = "\n\n".join(
                 part for part in (system_prompt, skills_prompt) if part
             ).strip()
-    # Merge skills.auto_load from config with TUI skills (union, no dupes).
-    # Respects HERMES_IGNORE_RULES — users who opt out of auto-injection
-    # should not get auto-injected skills.
-    if not is_truthy_value(os.environ.get("HERMES_IGNORE_RULES")):
-        from agent.skill_commands import resolve_auto_load_skills
-        auto_load = resolve_auto_load_skills(cfg)
-        if auto_load:
-            # Dedup: auto_load skills not already in startup_skills
-            existing = set(startup_skills)
-            new_auto = [s for s in auto_load if s not in existing]
-            if new_auto:
-                from agent.skill_commands import build_preloaded_skills_prompt
-                auto_prompt, _, auto_missing = build_preloaded_skills_prompt(
-                    new_auto, task_id=session_id or key,
-                )
-                if auto_missing:
-                    logger.warning(
-                        "TUI auto_load skill(s) not found: %s",
-                        ", ".join(auto_missing),
-                    )
-                if auto_prompt:
-                    system_prompt = "\n\n".join(
-                        part for part in (system_prompt, auto_prompt) if part
-                    ).strip()
     model, requested_provider = _resolve_startup_runtime()
     runtime = resolve_runtime_provider(
         requested=requested_provider,
